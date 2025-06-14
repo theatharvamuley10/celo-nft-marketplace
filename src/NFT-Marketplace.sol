@@ -1,48 +1,102 @@
+// Layout of Contract:
+// version
+// imports
+// errors
+// interfaces, libraries, contracts
+// Type declarations
+// State variables
+// Events
+// Modifiers
+// Functions
+
+// Layout of Functions:
+// constructor
+// receive function (if exists)
+// fallback function (if exists)
+// external
+// public
+// internal
+// private
+// internal & private view & pure functions
+// external & public view & pure functions
+
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity 0.8.30;
+
+///////////////////////////////////////////////////////
+////////////////////// Imports ////////////////////////
+///////////////////////////////////////////////////////
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+/// @title NFT Marketplace
+/// @author Atharva Muley
+/// @notice Users can list their nft and other people can buy them.
+
 contract NFTMarketplace {
+    ///////////////////////////////////////////////////////
+    //////////////////// Custom Errors ////////////////////
+    ///////////////////////////////////////////////////////
+
+    error NFTMarketplace_NotTheOwner();
+    error NFTMarketplace_Invalid_ListingPrice();
+    error NFTMarketplace_NFT_AlreadyListed();
+    error NFTMarketplace_NFT_IsNotListed();
+    error NFTMarketplace_Operator_NotApproved_ToControlThisAsset();
+    error NFTMarketplace_Incorrect_Amount_Sent();
+    error NFTMarketplace_PurchaseFailed();
+
+    ///////////////////////////////////////////////////////
+    ////////////////// Type Declaration ///////////////////
+    ///////////////////////////////////////////////////////
+
     struct Listing {
         uint256 price;
         address seller;
     }
 
-    // Contract Address -> (Token ID -> Listing Data)
-    mapping(address => mapping(uint => Listing)) public listings;
+    ///////////////////////////////////////////////////////
+    ////////////////// Storage Variables //////////////////
+    ///////////////////////////////////////////////////////
 
-    // MODIFIERS
+    mapping(address => mapping(uint => Listing)) public listings; // Contract Address -> (Token ID -> Listing Data)
+
+    ///////////////////////////////////////////////////////
+    ////////////////////// Modifiers //////////////////////
+    ///////////////////////////////////////////////////////
 
     modifier isNFTOwner(address nftAddress, uint tokenId) {
         IERC721 nftContract = IERC721(nftAddress);
-        require(
-            nftContract.ownerOf(tokenId) == msg.sender,
-            "MRKT: You're not the owner of this NFT"
-        );
+        if (nftContract.ownerOf(tokenId) != msg.sender) {
+            revert NFTMarketplace_NotTheOwner();
+        }
         _;
-    } // IERC721 contracts have the function ownerOf(tokenID) which when called returns the
-    // address of the owner of the nft with that token Id from the collection
+    }
 
     modifier validPrice(uint256 price) {
-        require(price > 0, "MRKT: Price must be > 0");
+        if (price <= 0) {
+            revert NFTMarketplace_Invalid_ListingPrice();
+        }
         _;
     }
 
     modifier isNotListed(address nftAddress, uint tokenId) {
-        require(
-            listings[nftAddress][tokenId].price == 0,
-            "MRKT: Already Listed"
-        );
+        if (listings[nftAddress][tokenId].price > 0) {
+            revert NFTMarketplace_NFT_AlreadyListed();
+        }
         _;
     }
 
     modifier isListed(address nftAddress, uint tokenId) {
-        require(listings[nftAddress][tokenId].price > 0, "MRKT: Is not Listed");
+        if (listings[nftAddress][tokenId].price <= 0) {
+            revert NFTMarketplace_NFT_IsNotListed();
+        }
         _;
     }
 
-    // EVENTS
+    ///////////////////////////////////////////////////////
+    ////////////////////// Events /////////////////////////
+    ///////////////////////////////////////////////////////
 
     event ListingCreated(
         address nftAddress,
@@ -68,7 +122,9 @@ contract NFTMarketplace {
         address buyer
     );
 
-    // FUNCTIONS
+    ///////////////////////////////////////////////////////
+    ///////////////////// FUNCTIONS ///////////////////////
+    ///////////////////////////////////////////////////////
 
     function createListing(
         address nftAddress,
@@ -81,19 +137,17 @@ contract NFTMarketplace {
         isNFTOwner(nftAddress, tokenId)
     {
         IERC721 nftContract = IERC721(nftAddress);
-
-        require(
-            nftContract.isApprovedForAll(msg.sender, address(this)) ||
-                nftContract.getApproved(tokenId) == address(this),
-            "MRKT : No approval for nft"
-        );
-
+        if (
+            !(nftContract.isApprovedForAll(msg.sender, address(this)) ||
+                nftContract.getApproved(tokenId) == address(this))
+        ) {
+            revert NFTMarketplace_Operator_NotApproved_ToControlThisAsset();
+        }
         // Add the listing to our mapping
         listings[nftAddress][tokenId] = Listing({
             price: price,
             seller: msg.sender
         });
-
         // logging this event
         emit ListingCreated(nftAddress, tokenId, price, msg.sender);
     }
@@ -103,7 +157,6 @@ contract NFTMarketplace {
         uint tokenId
     ) external isNFTOwner(nftAddress, tokenId) isListed(nftAddress, tokenId) {
         delete listings[nftAddress][tokenId];
-
         // logging this event
         emit ListingCancelled(nftAddress, tokenId, msg.sender);
     }
@@ -119,7 +172,6 @@ contract NFTMarketplace {
         isListed(nftAddress, tokenId)
     {
         listings[nftAddress][tokenId].price = newPrice;
-
         // logging this event
         emit ListingUpdated(nftAddress, tokenId, newPrice, msg.sender);
     }
@@ -134,33 +186,27 @@ contract NFTMarketplace {
         // 3. Transfer ETH from buyer to seller
         // 4. Transfer listing ownership from seller to buyer
         // 5. Delete Listing from our catalogue
-
-        // 1.
-        require(
-            msg.value == listings[nftAddress][tokenId].price,
-            "Insufficient ETH transfer"
-        );
-
+        /// 1.
+        if (msg.value != listings[nftAddress][tokenId].price) {
+            revert NFTMarketplace_Incorrect_Amount_Sent();
+        }
         // 2.
         Listing memory listing = listings[nftAddress][tokenId];
-
         // 3.
         address payable sellerPayable = payable(listing.seller);
         (bool sent, ) = sellerPayable.call{value: msg.value}("");
-        require(sent, "Transaction failed");
-
+        if (!sent) {
+            revert NFTMarketplace_PurchaseFailed();
+        }
         // 4.
         IERC721(nftAddress).safeTransferFrom(
             listing.seller,
             msg.sender,
             tokenId
         );
-
         // 5.
         delete listings[nftAddress][tokenId];
-
         // logging this event
-
         emit ListingPurchased(
             nftAddress,
             tokenId,
