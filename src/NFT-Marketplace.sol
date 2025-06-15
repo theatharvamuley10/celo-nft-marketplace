@@ -42,9 +42,9 @@ contract NFTMarketplace {
     error NFTMarketplace_Invalid_ListingPrice();
     error NFTMarketplace_NFT_AlreadyListed();
     error NFTMarketplace_NFT_IsNotListed();
-    error NFTMarketplace_Operator_NotApproved_ToControlThisAsset();
+    error NFTMarketplace_NotApproved_ToControlThisAsset();
     error NFTMarketplace_Incorrect_Amount_Sent();
-    error NFTMarketplace_PurchaseFailed();
+    error NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller();
 
     ///////////////////////////////////////////////////////
     ////////////////// Type Declaration ///////////////////
@@ -141,7 +141,7 @@ contract NFTMarketplace {
             !(nftContract.isApprovedForAll(msg.sender, address(this)) ||
                 nftContract.getApproved(tokenId) == address(this))
         ) {
-            revert NFTMarketplace_Operator_NotApproved_ToControlThisAsset();
+            revert NFTMarketplace_NotApproved_ToControlThisAsset();
         }
         // Add the listing to our mapping
         listings[nftAddress][tokenId] = Listing({
@@ -196,7 +196,7 @@ contract NFTMarketplace {
         address payable sellerPayable = payable(listing.seller);
         (bool sent, ) = sellerPayable.call{value: msg.value}("");
         if (!sent) {
-            revert NFTMarketplace_PurchaseFailed();
+            revert NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller();
         }
         // 4.
         IERC721(nftAddress).safeTransferFrom(
