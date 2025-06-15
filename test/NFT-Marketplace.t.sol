@@ -9,11 +9,20 @@ import {CreateMockNFT} from "../src/mocks/MockNFT.sol";
 // Mock ERC721 Token
 
 contract TestNFTMarketplace is Test {
+    error NFTMarketplace_NotTheOwner();
+    error NFTMarketplace_Invalid_ListingPrice();
+    error NFTMarketplace_NFT_AlreadyListed();
+    error NFTMarketplace_NFT_IsNotListed();
+    error NFTMarketplace_NotApproved_ToControlThisAsset();
+    error NFTMarketplace_Incorrect_Amount_Sent();
+    error NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller();
+
     NFTMarketplace public nftMarketplace;
     CreateMockNFT public mockNFT;
 
     address payable public seller = payable(address(1));
     address payable public buyer = payable(address(2));
+    address public sellerNonPayable = address(3);
     address payable mockNFTAddress;
 
     function setUp() public {
@@ -27,7 +36,7 @@ contract TestNFTMarketplace is Test {
 
         mockNFT.mint(seller, 0, "mockNFT0");
         mockNFT.mint(seller, 1, "mockNFT1");
-        // mockNFT.mint(seller, 2, "mockNFT2");
+        mockNFT.mint(sellerNonPayable, 2, "mockNFT2");
         // mockNFT.mint(seller, 3, "mockNFT3");
     }
 
@@ -53,7 +62,7 @@ contract TestNFTMarketplace is Test {
     function test_CreateListing_InvalidPrice() public {
         vm.startPrank(seller);
         mockNFT.approve(address(this), 0);
-        vm.expectRevert();
+        vm.expectRevert(NFTMarketplace_Invalid_ListingPrice.selector);
         nftMarketplace.createListing(mockNFTAddress, 0, 0);
     }
 
@@ -62,7 +71,7 @@ contract TestNFTMarketplace is Test {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 1);
         nftMarketplace.createListing(mockNFTAddress, 1, 1e18);
-        vm.expectRevert();
+        vm.expectRevert(NFTMarketplace_NFT_AlreadyListed.selector);
         nftMarketplace.createListing(mockNFTAddress, 1, 1e18);
         vm.stopPrank();
     }
@@ -72,14 +81,14 @@ contract TestNFTMarketplace is Test {
     function test_CreateListing_NotTheOwner() public {
         vm.prank(seller);
         mockNFT.approve(address(nftMarketplace), 1);
-        vm.expectRevert();
+        vm.expectRevert(NFTMarketplace_NotTheOwner.selector);
         nftMarketplace.createListing(mockNFTAddress, 1, 1e18);
     }
 
     // Create Listing Reverts as Nft Marketplace isn't approved to control the nft
     function test_CreateListing_NftMarketplaceIsNotApproved() public {
         vm.prank(seller);
-        vm.expectRevert();
+        vm.expectRevert(NFTMarketplace_NotApproved_ToControlThisAsset.selector);
         nftMarketplace.createListing(mockNFTAddress, 1, 1e18);
     }
 
@@ -107,5 +116,60 @@ contract TestNFTMarketplace is Test {
     ////////////////////////////////////////////////////
 
     // Update Listing Successful
-    function test_UpdateListing_Successfull() public {}
+    function test_UpdateListing_Successfull() public {
+        vm.startPrank(seller);
+        mockNFT.approve(address(nftMarketplace), 0);
+        nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
+        nftMarketplace.updateListing(mockNFTAddress, 0, 2e18);
+        vm.stopPrank();
+    }
+
+    // Update Listing Reverts as Listing Doesn't Exist
+    function test_UpdateListing_NoSuchListing() public {
+        vm.prank(seller);
+        vm.expectRevert(NFTMarketplace_NFT_IsNotListed.selector);
+        nftMarketplace.updateListing(mockNFTAddress, 0, 2e18);
+    }
+
+    ////////////////////////////////////////////////////
+    ///////////Testing updateListing////////////////////
+    ////////////////////////////////////////////////////
+
+    // Purchase Listing Successful
+
+    function test_PurchaseListing_Successful() public {
+        vm.startPrank(seller);
+        mockNFT.approve(address(nftMarketplace), 0);
+        nftMarketplace.createListing(mockNFTAddress, 0, 1.5e18);
+        vm.stopPrank();
+
+        vm.prank(buyer);
+        nftMarketplace.purchaseListing{value: 1.5e18}(mockNFTAddress, 0);
+    }
+
+    // Purcahse Listing Reverts as the money sent by the buyer is not equal to the nft price
+    function test_PurchaseListing_MoneySentIsNotEqualToNFTPrice() public {
+        vm.startPrank(seller);
+        mockNFT.approve(address(nftMarketplace), 0);
+        nftMarketplace.createListing(mockNFTAddress, 0, 1.5e18);
+        vm.stopPrank();
+
+        vm.prank(buyer);
+        vm.expectRevert(NFTMarketplace_Incorrect_Amount_Sent.selector);
+        nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0);
+    }
+
+    // // Purchase Listing Reverts as money wasn't sent to the seller successfully
+    // function test_PurchaseListing_MoneyTransactionFailed() public {
+    //     vm.startPrank(sellerNonPayable);
+    //     mockNFT.approve(address(nftMarketplace), 2);
+    //     nftMarketplace.createListing(mockNFTAddress, 2, 1.5e18);
+    //     vm.stopPrank();
+
+    //     vm.prank(buyer);
+    //     vm.expectRevert(
+    //         NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller.selector
+    //     );
+    //     nftMarketplace.purchaseListing{value: 1.5e18}(mockNFTAddress, 2);
+    // }
 }
