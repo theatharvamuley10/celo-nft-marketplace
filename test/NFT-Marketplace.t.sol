@@ -7,9 +7,12 @@ import {CreateMockNFT} from "../src/mocks/MockNFT.sol";
 import {MockTransferFailed} from "./utils/MockTransferFailed.sol";
 import {DeployNFTMarketplace} from "../script/DeployNFTMarketplace.s.sol";
 
-// Mock ERC721 Token
-
+/**
+ * @title NFT Marketplace Test Suite
+ * @notice Comprehensive test coverage for NFT Marketplace functionality
+ */
 contract TestNFTMarketplace is Test {
+    //////////////// Custom Errors ////////////////
     error NFTMarketplace_NotTheOwner();
     error NFTMarketplace_Invalid_ListingPrice();
     error NFTMarketplace_NFT_AlreadyListed();
@@ -18,16 +21,18 @@ contract TestNFTMarketplace is Test {
     error NFTMarketplace_Incorrect_Amount_Sent();
     error NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller();
 
+    //////////////// Test Contracts ///////////////
     NFTMarketplace public nftMarketplace;
     CreateMockNFT public mockNFT;
-
     address payable public seller = payable(address(1));
     address payable public buyer = payable(address(2));
     address payable mockNFTAddress;
 
+    //////////////// Setup ////////////////////////
     function setUp() public {
         DeployNFTMarketplace deployer = new DeployNFTMarketplace();
         nftMarketplace = deployer.run();
+
         vm.prank(seller);
         mockNFT = new CreateMockNFT();
         mockNFTAddress = payable(address(mockNFT));
@@ -36,30 +41,28 @@ contract TestNFTMarketplace is Test {
         vm.deal(buyer, 10e18);
 
         mockNFT.mint(seller, 0, "mockNFT0");
-        // mockNFT.mint(seller, 1, "mockNFT1");
-        // mockNFT.mint(seller, 2, "mockNFT2");
-        // mockNFT.mint(seller, 3, "mockNFT3");
     }
 
     ////////////////////////////////////////////////////
-    ///////////Testing createListing////////////////////
+    /////////// Testing createListing ///////////////////
     ////////////////////////////////////////////////////
 
-    // Create Listing Successful
+    // Successful NFT listing creation
     function test_CreateListing_Successful() public {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
         nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
         vm.stopPrank();
-        (uint price0, address nft_owner0) = nftMarketplace.listings(
+
+        (uint256 price, address owner) = nftMarketplace.listings(
             mockNFTAddress,
             0
         );
-        assertEq(price0, 1e18);
-        assertEq(nft_owner0, seller);
+        assertEq(price, 1e18, "Incorrect listing price");
+        assertEq(owner, seller, "Incorrect seller address");
     }
 
-    // Create Listing Reverts as Price is Invalid (<=0)
+    // Reverts if price is invalid (<= 0)
     function test_CreateListing_InvalidPrice() public {
         vm.startPrank(seller);
         mockNFT.approve(address(this), 0);
@@ -67,7 +70,7 @@ contract TestNFTMarketplace is Test {
         nftMarketplace.createListing(mockNFTAddress, 0, 0);
     }
 
-    // Create Listing Reverts as NFT is already Listed
+    // Reverts if NFT is already listed
     function test_CreateListing_ListingAlreadyExists() public {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
@@ -77,8 +80,7 @@ contract TestNFTMarketplace is Test {
         vm.stopPrank();
     }
 
-    // Create Listing Reverts as the person listing the NFT is not the owner of the nft
-
+    // Reverts if caller is not the owner
     function test_CreateListing_NotTheOwner() public {
         vm.prank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
@@ -86,7 +88,7 @@ contract TestNFTMarketplace is Test {
         nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
     }
 
-    // Create Listing Reverts as Nft Marketplace isn't approved to control the nft
+    // Reverts if marketplace is not approved
     function test_CreateListing_NftMarketplaceIsNotApproved() public {
         vm.prank(seller);
         vm.expectRevert(NFTMarketplace_NotApproved_ToControlThisAsset.selector);
@@ -94,35 +96,29 @@ contract TestNFTMarketplace is Test {
     }
 
     ////////////////////////////////////////////////////
-    ///////////Testing cancelListing////////////////////
+    /////////// Testing cancelListing ///////////////////
     ////////////////////////////////////////////////////
 
-    // Cancel Listing Successful
-
+    // Successful listing cancellation
     function test_CancelListing_Successful() public {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
         nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
         nftMarketplace.cancelListing(mockNFTAddress, 0);
-        (uint256 price, address nft_owner) = nftMarketplace.listings(
+
+        (uint256 price, address owner) = nftMarketplace.listings(
             mockNFTAddress,
             0
         );
-        assertEq(price, 0);
-        assertEq(nft_owner, address(0));
+        assertEq(price, 0, "Listing price not reset");
+        assertEq(owner, address(0), "Seller address not cleared");
     }
 
-    // function test_CancelListing_NFTNotListed() public {
-    //     vm.prank(seller);
-    //     vm.expectRevert(NFTMarketplace_NFT_IsNotListed.selector);
-    //     nftMarketplace.cancelListing(mockNFTAddress, 0); // Attempt to cancel unlisted NFT
-    // }
-
     ////////////////////////////////////////////////////
-    ///////////Testing updateListing////////////////////
+    /////////// Testing updateListing ///////////////////
     ////////////////////////////////////////////////////
 
-    // Update Listing Successful
+    // Successful price update
     function test_UpdateListing_Successfull() public {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
@@ -131,7 +127,7 @@ contract TestNFTMarketplace is Test {
         vm.stopPrank();
     }
 
-    // Update Listing Reverts as Listing Doesn't Exist
+    // Reverts if listing does not exist
     function test_UpdateListing_NoSuchListing() public {
         vm.prank(seller);
         vm.expectRevert(NFTMarketplace_NFT_IsNotListed.selector);
@@ -139,11 +135,10 @@ contract TestNFTMarketplace is Test {
     }
 
     ////////////////////////////////////////////////////
-    ///////////Testing updateListing////////////////////
+    /////////// Testing purchaseListing /////////////////
     ////////////////////////////////////////////////////
 
-    // Purchase Listing Successful
-
+    // Successful NFT purchase
     function test_PurchaseListing_Successful() public {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
@@ -154,7 +149,7 @@ contract TestNFTMarketplace is Test {
         nftMarketplace.purchaseListing{value: 1.5e18}(mockNFTAddress, 0);
     }
 
-    // Purcahse Listing Reverts as the money sent by the buyer is not equal to the nft price
+    // Reverts if payment is not equal to price
     function test_PurchaseListing_MoneySentIsNotEqualToNFTPrice() public {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
@@ -166,10 +161,11 @@ contract TestNFTMarketplace is Test {
         nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0);
     }
 
-    // Purchase Listing Reverts as money wasn't sent to the seller successfully
+    // Reverts if payment transfer to seller fails
     function test_PurchaseListing_MoneyTransactionFailed() public {
         MockTransferFailed sellerRevert = new MockTransferFailed();
         mockNFT.mint(address(sellerRevert), 1, "mockNFT1");
+
         vm.startPrank(address(sellerRevert));
         mockNFT.approve(address(nftMarketplace), 1);
         nftMarketplace.createListing(mockNFTAddress, 1, 1.5e18);
@@ -182,9 +178,10 @@ contract TestNFTMarketplace is Test {
         nftMarketplace.purchaseListing{value: 1.5e18}(mockNFTAddress, 1);
     }
 
+    // Reverts if NFT is not listed
     function test_PurchaseListing_NFTNotListed() public {
         vm.prank(buyer);
         vm.expectRevert(NFTMarketplace_NFT_IsNotListed.selector);
-        nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0); // Purchase unlisted NFT
+        nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0);
     }
 }
