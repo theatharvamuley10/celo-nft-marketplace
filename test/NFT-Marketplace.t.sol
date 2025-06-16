@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity 0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {NFTMarketplace} from "../src/NFT-Marketplace.sol";
 import {CreateMockNFT} from "../src/mocks/MockNFT.sol";
 import {MockTransferFailed} from "./utils/MockTransferFailed.sol";
+import {DeployNFTMarketplace} from "../script/DeployNFTMarketplace.s.sol";
 
 // Mock ERC721 Token
 
@@ -25,7 +26,8 @@ contract TestNFTMarketplace is Test {
     address payable mockNFTAddress;
 
     function setUp() public {
-        nftMarketplace = new NFTMarketplace();
+        DeployNFTMarketplace deployer = new DeployNFTMarketplace();
+        nftMarketplace = deployer.run();
         vm.prank(seller);
         mockNFT = new CreateMockNFT();
         mockNFTAddress = payable(address(mockNFT));
@@ -110,6 +112,12 @@ contract TestNFTMarketplace is Test {
         assertEq(nft_owner, address(0));
     }
 
+    // function test_CancelListing_NFTNotListed() public {
+    //     vm.prank(seller);
+    //     vm.expectRevert(NFTMarketplace_NFT_IsNotListed.selector);
+    //     nftMarketplace.cancelListing(mockNFTAddress, 0); // Attempt to cancel unlisted NFT
+    // }
+
     ////////////////////////////////////////////////////
     ///////////Testing updateListing////////////////////
     ////////////////////////////////////////////////////
@@ -172,5 +180,11 @@ contract TestNFTMarketplace is Test {
             NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller.selector
         );
         nftMarketplace.purchaseListing{value: 1.5e18}(mockNFTAddress, 1);
+    }
+
+    function test_PurchaseListing_NFTNotListed() public {
+        vm.prank(buyer);
+        vm.expectRevert(NFTMarketplace_NFT_IsNotListed.selector);
+        nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0); // Purchase unlisted NFT
     }
 }
