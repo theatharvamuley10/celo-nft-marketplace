@@ -1,42 +1,22 @@
-// Layout of Contract:
-// version
-// imports
-// errors
-// interfaces, libraries, contracts
-// Type declarations
-// State variables
-// Events
-// Modifiers
-// Functions
-
-// Layout of Functions:
-// constructor
-// receive function (if exists)
-// fallback function (if exists)
-// external
-// public
-// internal
-// private
-// internal & private view & pure functions
-// external & public view & pure functions
-
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-///////////////////////////////////////////////////////
-////////////////////// Imports ////////////////////////
-///////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+/////////////////////// IMPORTS ////////////////////////
+////////////////////////////////////////////////////////
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-/// @title NFT Marketplace
-/// @author Atharva Muley
-/// @notice Users can list their nft and other people can buy them.
-
+/**
+ * @title NFT Marketplace
+ * @author Atharva Muley
+ * @notice Decentralized marketplace for ERC721 token trading
+ * @dev Implements core NFT listing/purchasing functionality with safety checks
+ */
 contract NFTMarketplace {
-    ///////////////////////////////////////////////////////
-    //////////////////// Custom Errors ////////////////////
-    ///////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    ////////////////////// CUSTOM ERRORS ///////////////////
+    ////////////////////////////////////////////////////////
 
     error NFTMarketplace_NotTheOwner();
     error NFTMarketplace_Invalid_ListingPrice();
@@ -46,86 +26,99 @@ contract NFTMarketplace {
     error NFTMarketplace_Incorrect_Amount_Sent();
     error NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller();
 
-    ///////////////////////////////////////////////////////
-    ////////////////// Type Declaration ///////////////////
-    ///////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    //////////////////// TYPE DECLARATIONS /////////////////
+    ////////////////////////////////////////////////////////
 
+    /// @dev Stores listing price and seller address
     struct Listing {
         uint256 price;
         address seller;
     }
 
-    ///////////////////////////////////////////////////////
-    ////////////////// Storage Variables //////////////////
-    ///////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    //////////////////// STATE VARIABLES ///////////////////
+    ////////////////////////////////////////////////////////
 
-    mapping(address => mapping(uint => Listing)) public listings; // Contract Address -> (Token ID -> Listing Data)
+    /// @dev NFT contract address => Token ID => Listing details
+    mapping(address => mapping(uint256 => Listing)) public listings;
 
-    ///////////////////////////////////////////////////////
-    ////////////////////// Modifiers //////////////////////
-    ///////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    //////////////////////// EVENTS ////////////////////////
+    ////////////////////////////////////////////////////////
 
-    modifier isNFTOwner(address nftAddress, uint tokenId) {
-        IERC721 nftContract = IERC721(nftAddress);
-        if (nftContract.ownerOf(tokenId) != msg.sender) {
+    event ListingCreated(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        uint256 price,
+        address indexed seller
+    );
+
+    event ListingCancelled(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed seller
+    );
+
+    event ListingUpdated(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        uint256 newPrice,
+        address indexed seller
+    );
+
+    event ListingPurchased(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        uint256 price,
+        address seller,
+        address indexed buyer
+    );
+
+    ////////////////////////////////////////////////////////
+    ////////////////////// MODIFIERS ///////////////////////
+    ////////////////////////////////////////////////////////
+
+    /// @dev Verifies caller owns the specified NFT
+    modifier isNFTOwner(address nftAddress, uint256 tokenId) {
+        if (IERC721(nftAddress).ownerOf(tokenId) != msg.sender) {
             revert NFTMarketplace_NotTheOwner();
         }
         _;
     }
 
+    /// @dev Ensures listing price is greater than zero
     modifier validPrice(uint256 price) {
-        if (price <= 0) {
-            revert NFTMarketplace_Invalid_ListingPrice();
-        }
+        if (price == 0) revert NFTMarketplace_Invalid_ListingPrice();
         _;
     }
 
-    modifier isNotListed(address nftAddress, uint tokenId) {
-        if (listings[nftAddress][tokenId].price > 0) {
+    /// @dev Checks if NFT is not already listed
+    modifier isNotListed(address nftAddress, uint256 tokenId) {
+        if (listings[nftAddress][tokenId].price != 0) {
             revert NFTMarketplace_NFT_AlreadyListed();
         }
         _;
     }
 
-    modifier isListed(address nftAddress, uint tokenId) {
-        if (listings[nftAddress][tokenId].price <= 0) {
+    /// @dev Checks if NFT is currently listed
+    modifier isListed(address nftAddress, uint256 tokenId) {
+        if (listings[nftAddress][tokenId].price == 0) {
             revert NFTMarketplace_NFT_IsNotListed();
         }
         _;
     }
 
-    ///////////////////////////////////////////////////////
-    ////////////////////// Events /////////////////////////
-    ///////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    ////////////////// EXTERNAL FUNCTIONS //////////////////
+    ////////////////////////////////////////////////////////
 
-    event ListingCreated(
-        address nftAddress,
-        uint tokenId,
-        uint price,
-        address seller
-    );
-
-    event ListingCancelled(address nftAddress, uint tokenId, address seller);
-
-    event ListingUpdated(
-        address nftAddress,
-        uint tokenId,
-        uint newPrice,
-        address seller
-    );
-
-    event ListingPurchased(
-        address nftAddress,
-        uint tokenId,
-        uint price,
-        address seller,
-        address buyer
-    );
-
-    ///////////////////////////////////////////////////////
-    ///////////////////// FUNCTIONS ///////////////////////
-    ///////////////////////////////////////////////////////
-
+    /**
+     * @notice List an NFT for sale
+     * @param nftAddress Address of NFT contract
+     * @param tokenId ID of NFT to list
+     * @param price Listing price in wei
+     */
     function createListing(
         address nftAddress,
         uint256 tokenId,
@@ -143,28 +136,34 @@ contract NFTMarketplace {
         ) {
             revert NFTMarketplace_NotApproved_ToControlThisAsset();
         }
-        // Add the listing to our mapping
-        listings[nftAddress][tokenId] = Listing({
-            price: price,
-            seller: msg.sender
-        });
-        // logging this event
+
+        listings[nftAddress][tokenId] = Listing(price, msg.sender);
         emit ListingCreated(nftAddress, tokenId, price, msg.sender);
     }
 
+    /**
+     * @notice Cancel an existing NFT listing
+     * @param nftAddress Address of NFT contract
+     * @param tokenId ID of NFT to unlist
+     */
     function cancelListing(
         address nftAddress,
-        uint tokenId
+        uint256 tokenId
     ) external isNFTOwner(nftAddress, tokenId) isListed(nftAddress, tokenId) {
         delete listings[nftAddress][tokenId];
-        // logging this event
         emit ListingCancelled(nftAddress, tokenId, msg.sender);
     }
 
+    /**
+     * @notice Update price of an existing listing
+     * @param nftAddress Address of NFT contract
+     * @param tokenId ID of NFT to update
+     * @param newPrice New listing price in wei
+     */
     function updateListing(
         address nftAddress,
-        uint tokenId,
-        uint newPrice
+        uint256 tokenId,
+        uint256 newPrice
     )
         external
         isNFTOwner(nftAddress, tokenId)
@@ -172,41 +171,41 @@ contract NFTMarketplace {
         isListed(nftAddress, tokenId)
     {
         listings[nftAddress][tokenId].price = newPrice;
-        // logging this event
         emit ListingUpdated(nftAddress, tokenId, newPrice, msg.sender);
     }
 
+    /**
+     * @notice Purchase a listed NFT
+     * @param nftAddress Address of NFT contract
+     * @param tokenId ID of NFT to purchase
+     */
     function purchaseListing(
         address nftAddress,
-        uint tokenId
+        uint256 tokenId
     ) external payable isListed(nftAddress, tokenId) {
-        // here we need following 5 operations to make sure a successful purchase
-        // 1. Buyer must send the right amount of ETH
-        // 2. Load the listing in a local copy
-        // 3. Transfer ETH from buyer to seller
-        // 4. Transfer listing ownership from seller to buyer
-        // 5. Delete Listing from our catalogue
-        /// 1.
+        // Validate payment amount
         if (msg.value != listings[nftAddress][tokenId].price) {
             revert NFTMarketplace_Incorrect_Amount_Sent();
         }
-        // 2.
+
+        // Cache listing details
         Listing memory listing = listings[nftAddress][tokenId];
-        // 3.
-        address payable sellerPayable = payable(listing.seller);
-        (bool sent, ) = sellerPayable.call{value: msg.value}("");
-        if (!sent) {
+
+        // Transfer funds to seller
+        (bool success, ) = payable(listing.seller).call{value: msg.value}("");
+        if (!success)
             revert NFTMarketplace_PurchaseFailed_AmountNotSentToTheSeller();
-        }
-        // 4.
+
+        // Transfer NFT ownership
         IERC721(nftAddress).safeTransferFrom(
             listing.seller,
             msg.sender,
             tokenId
         );
-        // 5.
+
+        // Remove listing
         delete listings[nftAddress][tokenId];
-        // logging this event
+
         emit ListingPurchased(
             nftAddress,
             tokenId,
