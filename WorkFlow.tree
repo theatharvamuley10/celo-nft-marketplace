@@ -1,0 +1,57 @@
+NFTMarketplace
+├── createListing
+│   ├── Reverts
+│   │   ├── If price == 0
+│   │   ├── If NFT already listed
+│   │   ├── If caller is not NFT owner
+│   │   └── If marketplace not approved to transfer NFT
+│   ├── Updates
+│   │   └── listings[nftAddress][tokenId] = Listing(price, seller)
+│   └── Emits
+│       └── ListingCreated event
+│
+├── cancelListing
+│   ├── Reverts
+│   │   ├── If caller is not NFT owner
+│   │   └── If NFT is not listed
+│   ├── Updates
+│   │   └── delete listings[nftAddress][tokenId]
+│   └── Emits
+│       └── ListingCancelled event
+│
+├── updateListing
+│   ├── Reverts
+│   │   ├── If caller is not NFT owner
+│   │   ├── If new price == 0
+│   │   └── If NFT is not listed
+│   ├── Updates
+│   │   └── listings[nftAddress][tokenId].price = newPrice
+│   └── Emits
+│       └── ListingUpdated event
+│
+├── purchaseListing
+│   ├── Reverts
+│   │   ├── If NFT is not listed
+│   │   ├── If msg.value != listing.price
+│   │   └── If fund transfer to seller fails
+│   ├── Updates
+│   │   ├── Transfer NFT to buyer
+│   │   └── delete listings[nftAddress][tokenId]
+│   └── Emits
+│       └── ListingPurchased event
+│
+Modifiers
+├── isNFTOwner
+│   └── Checks if msg.sender == ownerOf(tokenId)
+├── validPrice
+│   └── Reverts if price == 0
+├── isNotListed
+│   └── Reverts if listing already exists
+├── isListed
+│   └── Reverts if listing does not exist
+│
+Events
+├── ListingCreated(nftAddress, tokenId, price, seller)
+├── ListingCancelled(nftAddress, tokenId, seller)
+├── ListingUpdated(nftAddress, tokenId, newPrice, seller)
+└── ListingPurchased(nftAddress, tokenId, price, seller, buyer)
