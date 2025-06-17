@@ -1,66 +1,105 @@
-## Foundry
+# Celo NFT Marketplace
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A decentralized NFT marketplace enabling users to list, update, cancel, and purchase NFTs in a secure and transparent way. This project emphasizes robust smart contract design, comprehensive testing, and efficient gas usage.
 
-Foundry consists of:
+---
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Features
 
-## Documentation
+- **List NFTs for Sale:** Owners can list their NFTs at a specified price.
+- **Update Listings:** Sellers can update the price of their listed NFTs.
+- **Cancel Listings:** Sellers can remove their NFTs from the marketplace.
+- **Purchase NFTs:** Buyers can purchase listed NFTs securely.
+- **Full Test Coverage:** All core functionalities are thoroughly tested.
+- **Gas Usage Insights:** Gas consumption for all major operations is measured.
 
-https://book.getfoundry.sh/
+---
 
-## Usage
+## Smart Contract Architecture
 
-### Build
+The marketplace is implemented in Solidity and follows a modular, test-driven approach. Below is a high-level overview of the contract structure and workflow:
 
-```shell
-$ forge build
-```
+![workflow_and_logic](images/workflow_and_logic.png)
 
-### Test
+**Core Functions:**
 
-```shell
-$ forge test
-```
+- `createListing`: List an NFT for sale (with checks for ownership, approval, and valid price).
+- `cancelListing`: Remove an NFT from the marketplace (only by the owner).
+- `updateListing`: Change the price of an existing listing (only by the owner).
+- `purchaseListing`: Buy a listed NFT (with payment and transfer validation).
 
-### Format
+**Modifiers and Events:**
 
-```shell
-$ forge fmt
-```
+- Modifiers ensure only valid actions (e.g., only the owner can update or cancel a listing).
+- Events are emitted for all key actions, enabling easy integration with frontends or subgraphs.
 
-### Gas Snapshots
+---
 
-```shell
-$ forge snapshot
-```
+## Gas Usage Snapshot
 
-### Anvil
+The project includes detailed gas usage tracking for all major contract interactions, helping developers optimize and understand transaction costs.
 
-```shell
-$ anvil
-```
+![gas_usage](images/gas_usage.png)
 
-### Deploy
+**Sample Gas Costs:**
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+- Cancel Listing: 86,989
+- Create Listing (Success): 108,000
+- Purchase Listing (Success): 127,681
+- Update Listing (Success): 109,859
 
-### Cast
+---
 
-```shell
-$ cast <subcommand>
-```
+## Test Coverage
 
-### Help
+Comprehensive tests ensure all functionalities work as intended and edge cases are handled. The project achieves **100% coverage** across all files, statements, branches, and functions.
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+![test_coverage](images/test_coverage.png)
+
+- All smart contract logic is fully tested.
+- Edge cases (invalid prices, unauthorized actions, failed transfers) are covered.
+- Mock contracts are used for simulating different scenarios.
+
+---
+
+## Project Structure
+
+- `src/NFT-Marketplace.sol`: Main marketplace contract.
+- `src/mocks/MockNFT.sol`: Mock NFT contract for testing.
+- `test/`: Contains all unit and integration tests.
+- `scripts/`: Deployment scripts.
+
+---
+
+## Contribution
+
+Feel free to open issues or pull requests to suggest improvements, report bugs, or contribute new features.
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Acknowledgements
+
+- Built with Solidity, Foundry, and OpenZeppelin.
+- Inspired by NFT marketplace project by [Learnweb3.io](https://learnweb3.io/lessons/build-a-full-stack-nft-marketplace-like-open-sea-from-scratch-using-next-js-hardhat-rainbow-kit-and-celo/)
+
+---
+
+## Resources and References
+
+- [solidity-by-example](https://solidity-by-example.org/)
+- [foundry fundamentals by cyfrin updraft](https://updraft.cyfrin.io/courses/foundry)
+- [foundry book](https://getfoundry.sh/introduction/getting-started)
+- [ERC721 functions](https://docs.openzeppelin.com/contracts/3.x/api/token/erc721)
+- [nft-marketplace project by allwin199](https://github.com/allwin199/nft-marketplace)
+
+---
+
+**Note:** This project is for educational and demonstration purposes. Do not use in production without a full security audit.
+
+<div style="text-align: center">⁂</div>
