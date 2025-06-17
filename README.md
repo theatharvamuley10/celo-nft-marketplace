@@ -1,4 +1,4 @@
-# Celo NFT Marketplace
+# NFT Marketplace
 
 A decentralized NFT marketplace enabling users to list, update, cancel, and purchase NFTs in a secure and transparent way. This project emphasizes robust smart contract design, comprehensive testing, and efficient gas usage.
 
