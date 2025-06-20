@@ -44,16 +44,23 @@ contract TestNFTMarketplace is Test {
     }
 
     ////////////////////////////////////////////////////
-    /////////// Testing createListing ///////////////////
+    ////////////////// Modifiers ///////////////////////
     ////////////////////////////////////////////////////
 
-    // Successful NFT listing creation
-    function test_CreateListing_Successful() public {
+    modifier listingCreated() {
         vm.startPrank(seller);
         mockNFT.approve(address(nftMarketplace), 0);
         nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
         vm.stopPrank();
+        _;
+    }
 
+    ////////////////////////////////////////////////////
+    /////////// Testing createListing ///////////////////
+    ////////////////////////////////////////////////////
+
+    // Successful NFT listing creation
+    function test_CreateListing_Successful() public listingCreated {
         (uint256 price, address owner) = nftMarketplace.listings(
             mockNFTAddress,
             0
@@ -71,13 +78,10 @@ contract TestNFTMarketplace is Test {
     }
 
     // Reverts if NFT is already listed
-    function test_CreateListing_ListingAlreadyExists() public {
-        vm.startPrank(seller);
-        mockNFT.approve(address(nftMarketplace), 0);
-        nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
+    function test_CreateListing_ListingAlreadyExists() public listingCreated {
         vm.expectRevert(NFTMarketplace_NFT_AlreadyListed.selector);
+        vm.prank(seller);
         nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
-        vm.stopPrank();
     }
 
     // Reverts if caller is not the owner
@@ -100,16 +104,15 @@ contract TestNFTMarketplace is Test {
     ////////////////////////////////////////////////////
 
     // Successful listing cancellation
-    function test_CancelListing_Successful() public {
+    function test_CancelListing_Successful() public listingCreated {
         vm.startPrank(seller);
-        mockNFT.approve(address(nftMarketplace), 0);
-        nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
         nftMarketplace.cancelListing(mockNFTAddress, 0);
 
         (uint256 price, address owner) = nftMarketplace.listings(
             mockNFTAddress,
             0
         );
+        vm.stopPrank();
         assertEq(price, 0, "Listing price not reset");
         assertEq(owner, address(0), "Seller address not cleared");
     }
@@ -119,12 +122,9 @@ contract TestNFTMarketplace is Test {
     ////////////////////////////////////////////////////
 
     // Successful price update
-    function test_UpdateListing_Successfull() public {
-        vm.startPrank(seller);
-        mockNFT.approve(address(nftMarketplace), 0);
-        nftMarketplace.createListing(mockNFTAddress, 0, 1e18);
+    function test_UpdateListing_Successfull() public listingCreated {
+        vm.prank(seller);
         nftMarketplace.updateListing(mockNFTAddress, 0, 2e18);
-        vm.stopPrank();
     }
 
     // Reverts if listing does not exist
@@ -139,26 +139,19 @@ contract TestNFTMarketplace is Test {
     ////////////////////////////////////////////////////
 
     // Successful NFT purchase
-    function test_PurchaseListing_Successful() public {
-        vm.startPrank(seller);
-        mockNFT.approve(address(nftMarketplace), 0);
-        nftMarketplace.createListing(mockNFTAddress, 0, 1.5e18);
-        vm.stopPrank();
-
+    function test_PurchaseListing_Successful() public listingCreated {
         vm.prank(buyer);
-        nftMarketplace.purchaseListing{value: 1.5e18}(mockNFTAddress, 0);
+        nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0);
     }
 
     // Reverts if payment is not equal to price
-    function test_PurchaseListing_MoneySentIsNotEqualToNFTPrice() public {
-        vm.startPrank(seller);
-        mockNFT.approve(address(nftMarketplace), 0);
-        nftMarketplace.createListing(mockNFTAddress, 0, 1.5e18);
-        vm.stopPrank();
-
+    function test_PurchaseListing_MoneySentIsNotEqualToNFTPrice()
+        public
+        listingCreated
+    {
         vm.prank(buyer);
         vm.expectRevert(NFTMarketplace_Incorrect_Amount_Sent.selector);
-        nftMarketplace.purchaseListing{value: 1e18}(mockNFTAddress, 0);
+        nftMarketplace.purchaseListing{value: 0.1e18}(mockNFTAddress, 0);
     }
 
     // Reverts if payment transfer to seller fails
