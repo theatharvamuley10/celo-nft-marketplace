@@ -11,7 +11,8 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
  * @title NFT Marketplace
  * @author Atharva Muley
  * @notice Decentralized marketplace for ERC721 token trading
- * @dev Implements core NFT listing/purchasing functionality with safety checks
+ * @dev Implementts ERC721 interface and mock nft creation.
+ * @dev Implements core NFT listing/purchasing functionality with safety checks.
  */
 contract NFTMarketplace {
     ////////////////////////////////////////////////////////
@@ -81,31 +82,34 @@ contract NFTMarketplace {
 
     /// @dev Verifies caller owns the specified NFT
     modifier isNFTOwner(address nftAddress, uint256 tokenId) {
-        if (IERC721(nftAddress).ownerOf(tokenId) != msg.sender) {
-            revert NFTMarketplace_NotTheOwner();
-        }
+        require(
+            IERC721(nftAddress).ownerOf(tokenId) == msg.sender,
+            NFTMarketplace_NotTheOwner()
+        );
         _;
     }
 
     /// @dev Ensures listing price is greater than zero
     modifier validPrice(uint256 price) {
-        if (price == 0) revert NFTMarketplace_Invalid_ListingPrice();
+        require(price > 0, NFTMarketplace_Invalid_ListingPrice());
         _;
     }
 
     /// @dev Checks if NFT is not already listed
     modifier isNotListed(address nftAddress, uint256 tokenId) {
-        if (listings[nftAddress][tokenId].price != 0) {
-            revert NFTMarketplace_NFT_AlreadyListed();
-        }
+        require(
+            listings[nftAddress][tokenId].price == 0,
+            NFTMarketplace_NFT_AlreadyListed()
+        );
         _;
     }
 
     /// @dev Checks if NFT is currently listed
     modifier isListed(address nftAddress, uint256 tokenId) {
-        if (listings[nftAddress][tokenId].price == 0) {
-            revert NFTMarketplace_NFT_IsNotListed();
-        }
+        require(
+            listings[nftAddress][tokenId].price != 0,
+            NFTMarketplace_NFT_IsNotListed()
+        );
         _;
     }
 
@@ -130,12 +134,11 @@ contract NFTMarketplace {
         isNFTOwner(nftAddress, tokenId)
     {
         IERC721 nftContract = IERC721(nftAddress);
-        if (
-            !(nftContract.isApprovedForAll(msg.sender, address(this)) ||
-                nftContract.getApproved(tokenId) == address(this))
-        ) {
-            revert NFTMarketplace_NotApproved_ToControlThisAsset();
-        }
+        require(
+            (nftContract.isApprovedForAll(msg.sender, address(this)) ||
+                nftContract.getApproved(tokenId) == address(this)),
+            NFTMarketplace_NotApproved_ToControlThisAsset()
+        );
 
         listings[nftAddress][tokenId] = Listing(price, msg.sender);
         emit ListingCreated(nftAddress, tokenId, price, msg.sender);
@@ -184,9 +187,10 @@ contract NFTMarketplace {
         uint256 tokenId
     ) external payable isListed(nftAddress, tokenId) {
         // Validate payment amount
-        if (msg.value != listings[nftAddress][tokenId].price) {
-            revert NFTMarketplace_Incorrect_Amount_Sent();
-        }
+        require(
+            msg.value == listings[nftAddress][tokenId].price,
+            NFTMarketplace_Incorrect_Amount_Sent()
+        );
 
         // Cache listing details
         Listing memory listing = listings[nftAddress][tokenId];
