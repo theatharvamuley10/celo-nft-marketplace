@@ -82,34 +82,31 @@ contract NFTMarketplace {
 
     /// @dev Verifies caller owns the specified NFT
     modifier isNFTOwner(address nftAddress, uint256 tokenId) {
-        require(
-            IERC721(nftAddress).ownerOf(tokenId) == msg.sender,
-            NFTMarketplace_NotTheOwner()
-        );
+        if (IERC721(nftAddress).ownerOf(tokenId) != msg.sender) {
+            revert NFTMarketplace_NotTheOwner();
+        }
         _;
     }
 
     /// @dev Ensures listing price is greater than zero
     modifier validPrice(uint256 price) {
-        require(price > 0, NFTMarketplace_Invalid_ListingPrice());
+        if (price == 0) revert NFTMarketplace_Invalid_ListingPrice();
         _;
     }
 
     /// @dev Checks if NFT is not already listed
     modifier isNotListed(address nftAddress, uint256 tokenId) {
-        require(
-            listings[nftAddress][tokenId].price == 0,
-            NFTMarketplace_NFT_AlreadyListed()
-        );
+        if (listings[nftAddress][tokenId].price != 0) {
+            revert NFTMarketplace_NFT_AlreadyListed();
+        }
         _;
     }
 
     /// @dev Checks if NFT is currently listed
     modifier isListed(address nftAddress, uint256 tokenId) {
-        require(
-            listings[nftAddress][tokenId].price != 0,
-            NFTMarketplace_NFT_IsNotListed()
-        );
+        if (listings[nftAddress][tokenId].price == 0) {
+            revert NFTMarketplace_NFT_IsNotListed();
+        }
         _;
     }
 
@@ -134,11 +131,12 @@ contract NFTMarketplace {
         isNFTOwner(nftAddress, tokenId)
     {
         IERC721 nftContract = IERC721(nftAddress);
-        require(
-            (nftContract.isApprovedForAll(msg.sender, address(this)) ||
-                nftContract.getApproved(tokenId) == address(this)),
-            NFTMarketplace_NotApproved_ToControlThisAsset()
-        );
+        if (
+            !(nftContract.isApprovedForAll(msg.sender, address(this)) ||
+                nftContract.getApproved(tokenId) == address(this))
+        ) {
+            revert NFTMarketplace_NotApproved_ToControlThisAsset();
+        }
 
         listings[nftAddress][tokenId] = Listing(price, msg.sender);
         emit ListingCreated(nftAddress, tokenId, price, msg.sender);
@@ -187,10 +185,9 @@ contract NFTMarketplace {
         uint256 tokenId
     ) external payable isListed(nftAddress, tokenId) {
         // Validate payment amount
-        require(
-            msg.value == listings[nftAddress][tokenId].price,
-            NFTMarketplace_Incorrect_Amount_Sent()
-        );
+        if (msg.value != listings[nftAddress][tokenId].price) {
+            revert NFTMarketplace_Incorrect_Amount_Sent();
+        }
 
         // Cache listing details
         Listing memory listing = listings[nftAddress][tokenId];
